@@ -6,7 +6,8 @@ const cron = require('node-cron');
 const port = 5000;
 
 var MongoClient = require('mongodb').MongoClient;
-var url = 'mongodb://localhost:27017/';
+var url =
+  'mongodb+srv://Surasit:O8X7hT9y1nrZOyRU@cluster0.u3exbej.mongodb.net/used-price-car?retryWrites=true&w=majority';
 var data;
 MongoClient.connect(url, function (err, db) {
   if (err) throw err;
@@ -14,43 +15,90 @@ MongoClient.connect(url, function (err, db) {
   db.close();
 });
 
-/*
-MongoClient.connect(url, function (err, db) {
-  if (err) throw err;
-  var dbo = db.db('used-price-car');
+let update = async (dbo, newData) => {
+  console.log(typeof newData);
+  await dbo.collection('price').updateOne(
+    {
+      id: '638c3830eaf4f9129479c03f',
+    },
+    { $set: { data: { model: newData } } },
+    function (err, res) {
+      if (err) {
+        console.log(err);
+      }
 
+      console.log(res);
+    }
+  );
+};
 
-  dbo
-    .collection('price')
-    .find()
-    .toArray(async function (err, result) {
-      if (err) throw err;
-      let oldData = result[0]['data']['model'];
-      console.log(oldData['attrage']);
-      let data = await getPrice.getData();
-      let newData = {};
+cron.schedule('* * 1 * *', function () {
+  console.log('start');
+  MongoClient.connect(url, async function (err, db) {
+    if (err) throw err;
+    var dbo = db.db('used-price-car');
 
-      newData['attrage'] = [...oldData['attrage'], data['attrage']];
-      console.log(newData);
+    await dbo
+      .collection('price')
+      .find()
+      .toArray(async function (err, result) {
+        if (err) throw err;
+        let oldData = result[0]['data']['model'];
+        //console.log(oldData['attrage']);
+        let data = await getPrice.getData();
+        let newData = {};
+        //console.log(oldData);
+        //newData['attrage'] = [...oldData['attrage'], data['attrage']];
 
-      db.close();
-    });
+        Object.keys(data).forEach((key) => {
+          //console.log(key, data[key]);
+          //console.log(key);
+          let dataCar = oldData[key];
+          //oldData[key] = oldData[key].push(data[key]);
+
+          console.log('---------------');
+          console.log(key);
+          if (oldData[key] == undefined) {
+            newData[key] = [data[key]];
+          } else {
+            newData[key] = [...dataCar, data[key]];
+          }
+
+          //console.log(oldData[key]);
+        });
+        await update(dbo, newData);
+
+        /*
+        console.log(newData);
+        await dbo
+          .collection('price')
+          .updateOne(
+            { _id: '638c3830eaf4f9129479c03f' },
+            { $set: { data: { model: newData } } },
+            function (err, res) {
+              if (err) {
+                console.log(err);
+              }
+  
+              console.log('1 document updated');
+            }
+          );
+          */
+        //console.log(newData);
+      });
+  });
 });
-/*
-cron.schedule('* 5 * * *', function () {
-  console.log('running a task every minute');
-});
-*/
+
 app.use(express.json());
 app.use(cors());
 
 app.get('/:name', (req, res) => {
   let name = req.params.name;
+  console.log(`${name}11`);
 
   MongoClient.connect(url, function (err, db) {
     if (err) throw err;
     var dbo = db.db('used-price-car');
-    var query = { address: 'Park Lane 38' };
 
     dbo
       .collection('price')
@@ -58,14 +106,18 @@ app.get('/:name', (req, res) => {
       .toArray(async function (err, result) {
         if (err) throw err;
         let oldData = result[0]['data']['model'];
-        res.send(oldData);
+
+        Object.entries(oldData).forEach(([key, value]) => {
+          if (`${key}\n` === name) {
+            res.send(value);
+          }
+        });
+
+        res.send(oldData[`${name}`]);
+
         db.close();
       });
   });
-});
-app.get('/1', (req, res) => {
-  console.log('กดเกดเ');
-  res.send('ดกดเ้');
 });
 
 app.listen(port, () => {
